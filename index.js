@@ -1,50 +1,56 @@
 import { Hono } from 'hono'
 import { Database } from 'bun:sqlite'
 
-// Abre la base de datos
+const app = new Hono()
 const db = new Database('./base.sqlite3')
-db.run(`CREATE TABLE IF NOT EXISTS todos (
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS todos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     todo TEXT NOT NULL,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
-)`)
-
-const app = new Hono()
+  )
+`)
 
 app.get('/', (c) => {
-    return c.json({ status: 'ok' })
+  return c.json({ status: 'ok' })
 })
 
-app.post('/login', async (c) => {
-    return c.json({ status: 'ok' })
-})
-
-app.post('/insert', async (c) => {
-    let body
-    try {
-        body = await c.req.json()
-    } catch {
-        return c.json({ error: 'Falta información necesaria' }, 400)
-    }
-
+app.post('/agrega_todo', async (c) => {
+  try {
+    const body = await c.req.json()
     const { todo } = body
 
-    if (!todo) {
-        return c.json({ error: 'Falta información necesaria' }, 400)
+    if (!todo || todo.trim() === '') {
+      return c.json(
+        { status: 'error', message: 'El campo "todo" es obligatorio' },
+        400
+      )
     }
 
-    try {
-        const stmt = db.prepare('INSERT INTO todos (todo) VALUES (?)')
-        const result = stmt.run(todo)
-        return c.json({ id: Number(result.lastInsertRowid), message: 'Insert was successful' }, 201)
-    } catch (err) {
-        return c.json({ error: err.message }, 500)
-    }
+    const stmt = db.prepare('INSERT INTO todos (todo) VALUES (?)')
+    const result = stmt.run(todo)
+
+    return c.json(
+      {
+        status: 'ok',
+        message: 'Todo guardado correctamente',
+        id: Number(result.lastInsertRowid),
+        todo
+      },
+      201
+    )
+  } catch (error) {
+    return c.json(
+      { status: 'error', message: 'Error al procesar la solicitud' },
+      500
+    )
+  }
 })
 
-export { app, db }
+app.get('/todos', (c) => {
+  const todos = db.query('SELECT * FROM todos ORDER BY id DESC').all()
+  return c.json(todos)
+})
 
-export default {
-    port: process.env.PORT || 3000,
-    fetch: app.fetch,
-}
+export default app
