@@ -49,8 +49,15 @@ app.post('/agrega_todo', async (c) => {
 })
 
 app.get('/todos', (c) => {
-  const todos = db.query('SELECT * FROM todos ORDER BY id DESC').all()
-  return c.json(todos)
+  try {
+    const todos = db.query('SELECT * FROM todos ORDER BY id DESC').all()
+    return c.json(todos)
+  } catch (error) {
+    return c.json(
+      { status: 'error', message: 'Error al obtener las tareas' },
+      500
+    )
+  }
 })
 
 export default app
